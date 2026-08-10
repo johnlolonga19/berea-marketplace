@@ -3,10 +3,6 @@ import type { ReactNode } from 'react'
 import { auth } from '../lib/api'
 import type { User } from '../types'
 
-// Must match backend/app/seed.py's DEMO_EMAIL/DEMO_PASSWORD.
-const DEMO_EMAIL = 'demo@berea.edu'
-const DEMO_PASSWORD = 'demopassword123'
-
 interface AuthContextValue {
   user: User | null
   loading: boolean
@@ -23,27 +19,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const token = localStorage.getItem('access_token')
-    if (token) {
-      auth
-        .me()
-        .then(setUser)
-        .catch(() => localStorage.removeItem('access_token'))
-        .finally(() => setLoading(false))
+    if (!token) {
+      setLoading(false)
       return
     }
-
-    if (import.meta.env.DEV) {
-      login(DEMO_EMAIL, DEMO_PASSWORD)
-        .catch(() => {
-          // Seed data not loaded yet (run `python -m app.seed` in backend/) - fall
-          // back to the normal logged-out state instead of blocking the app.
-        })
-        .finally(() => setLoading(false))
-      return
-    }
-
-    setLoading(false)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    auth
+      .me()
+      .then(setUser)
+      .catch(() => localStorage.removeItem('access_token'))
+      .finally(() => setLoading(false))
   }, [])
 
   async function login(email: string, password: string) {

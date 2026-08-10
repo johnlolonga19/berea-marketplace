@@ -12,11 +12,9 @@ npm run dev
 
 Requires the backend to be running (see `../backend/README` setup) and its `CORS_ORIGINS` to include this dev server's origin (`http://localhost:5173` by default).
 
-## Demo data & dev auto-login
+## Demo data
 
-Run `python -m app.seed` in `../backend` (with the venv active and `.env` pointing at your dev DB) to create a demo user and a handful of sample listings.
-
-In dev builds only (`npm run dev`, i.e. `import.meta.env.DEV`), `AuthContext` automatically logs in as that demo user on load, so you don't have to sign in by hand while iterating on the UI. This never runs in a production build (`npm run build`). If the seed script hasn't been run yet, auto-login just fails silently and you land on the normal logged-out state.
+Run `python -m app.seed` in `../backend` (with the venv active and `.env` pointing at your dev DB) to create a demo user and a handful of sample listings. Log in at `/login` with `demo@berea.edu` / `demopassword123`.
 
 ## Structure
 
