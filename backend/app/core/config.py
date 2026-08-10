@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     cloudinary_api_key: str = ""
     cloudinary_api_secret: str = ""
 
-    cors_origins: list[str] = ["http://localhost:3000"]
+    cors_origins: list[str] = ["http://localhost:5173"]
 
 
 @lru_cache
