@@ -37,9 +37,9 @@ def test_start_conversation_not_found(client, auth_headers):
 
 
 def test_start_conversation_success(client, auth_headers):
-    seller_headers = auth_headers(email="seller@berea.edu")
-    buyer_headers = auth_headers(email="buyer@berea.edu")
-    listing = _create_listing(client, seller_headers)
+    seller_headers = auth_headers(email="seller@berea.edu", full_name="Seller Sam")
+    buyer_headers = auth_headers(email="buyer@berea.edu", full_name="Buyer Bob")
+    listing = _create_listing(client, seller_headers, title="Desk lamp")
 
     res = client.post(
         "/api/v1/conversations",
@@ -49,6 +49,9 @@ def test_start_conversation_success(client, auth_headers):
     assert res.status_code == 201, res.text
     body = res.json()
     assert body["listing_id"] == listing["id"]
+    assert body["listing_title"] == "Desk lamp"
+    assert body["buyer_name"] == "Buyer Bob"
+    assert body["seller_name"] == "Seller Sam"
     assert len(body["messages"]) == 1
     assert body["messages"][0]["body"] == "Is this available?"
 

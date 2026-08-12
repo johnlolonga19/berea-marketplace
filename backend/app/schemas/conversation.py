@@ -15,8 +15,11 @@ class ConversationDetail(BaseModel):
 
     id: int
     listing_id: int
+    listing_title: str
     buyer_id: int
+    buyer_name: str
     seller_id: int
+    seller_name: str
     created_at: datetime
     messages: list[MessageRead]
 

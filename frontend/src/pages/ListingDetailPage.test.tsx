@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import ListingDetailPage from './ListingDetailPage'
-import { listings as listingsApi } from '../lib/api'
+import { listings as listingsApi, conversations as conversationsApi } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import type { Listing, User } from '../types'
 
@@ -11,6 +11,7 @@ const navigateMock = vi.fn()
 
 vi.mock('../lib/api', () => ({
   listings: { get: vi.fn(), update: vi.fn(), remove: vi.fn() },
+  conversations: { start: vi.fn() },
   ApiError: class ApiError extends Error {},
 }))
 
@@ -110,5 +111,49 @@ describe('ListingDetailPage', () => {
     await userEvent.click(screen.getByText('Delete'))
 
     expect(listingsApi.remove).not.toHaveBeenCalled()
+  })
+
+  it('owner does not see the message-seller form', async () => {
+    vi.mocked(listingsApi.get).mockResolvedValue(ownerListing)
+    mockAuth(asUser(1))
+    renderPage()
+    await waitFor(() => expect(screen.getByText('Desk Lamp')).toBeInTheDocument())
+    expect(screen.queryByText('Message the seller')).not.toBeInTheDocument()
+  })
+
+  it('prompts logged-out visitors to log in instead of showing the form', async () => {
+    vi.mocked(listingsApi.get).mockResolvedValue(ownerListing)
+    mockAuth(null)
+    renderPage()
+    await waitFor(() => expect(screen.getByText('Desk Lamp')).toBeInTheDocument())
+    expect(screen.queryByText('Message the seller')).not.toBeInTheDocument()
+    expect(screen.getByText('to message the seller.')).toBeInTheDocument()
+  })
+
+  it('lets a non-owner send a message and navigates to the conversation', async () => {
+    vi.mocked(listingsApi.get).mockResolvedValue(ownerListing)
+    vi.mocked(conversationsApi.start).mockResolvedValue({
+      id: 7,
+      listing_id: 1,
+      listing_title: 'Desk Lamp',
+      buyer_id: 2,
+      buyer_name: 'User 2',
+      seller_id: 1,
+      seller_name: 'User 1',
+      created_at: '2026-01-01T00:00:00Z',
+      messages: [],
+    })
+    mockAuth(asUser(2))
+
+    renderPage()
+    await waitFor(() => expect(screen.getByText('Message the seller')).toBeInTheDocument())
+
+    await userEvent.type(screen.getByPlaceholderText('Is this still available?'), 'Still available?')
+    await userEvent.click(screen.getByRole('button', { name: 'Send message' }))
+
+    await waitFor(() =>
+      expect(conversationsApi.start).toHaveBeenCalledWith(1, 'Still available?'),
+    )
+    expect(navigateMock).toHaveBeenCalledWith('/messages/7')
   })
 })

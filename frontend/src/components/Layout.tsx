@@ -26,6 +26,9 @@ export default function Layout() {
                 <Link to="/my-listings" className="text-gray-700 hover:text-gray-950">
                   My listings
                 </Link>
+                <Link to="/messages" className="text-gray-700 hover:text-gray-950">
+                  Messages
+                </Link>
                 <span className="text-gray-500">{user.full_name}</span>
                 <button
                   type="button"

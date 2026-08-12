@@ -32,3 +32,33 @@ export interface ListingUpdateInput {
   image_url?: string | null
   is_sold?: boolean
 }
+
+export interface Message {
+  id: number
+  conversation_id: number
+  sender_id: number
+  body: string
+  created_at: string
+}
+
+export interface ConversationDetail {
+  id: number
+  listing_id: number
+  listing_title: string
+  buyer_id: number
+  buyer_name: string
+  seller_id: number
+  seller_name: string
+  created_at: string
+  messages: Message[]
+}
+
+export interface ConversationSummary {
+  id: number
+  listing_id: number
+  listing_title: string
+  other_user_id: number
+  other_user_name: string
+  last_message: string
+  last_message_at: string
+}

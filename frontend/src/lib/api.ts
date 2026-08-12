@@ -1,4 +1,12 @@
-import type { Listing, ListingInput, ListingUpdateInput, User } from '../types'
+import type {
+  ConversationDetail,
+  ConversationSummary,
+  Listing,
+  ListingInput,
+  ListingUpdateInput,
+  Message,
+  User,
+} from '../types'
 
 const API_URL = import.meta.env.VITE_API_URL
 
@@ -120,5 +128,31 @@ export const uploads = {
       body: formData,
     })
     return url
+  },
+}
+
+export const conversations = {
+  async list(): Promise<ConversationSummary[]> {
+    return request<ConversationSummary[]>('/conversations')
+  },
+
+  async get(id: number): Promise<ConversationDetail> {
+    return request<ConversationDetail>(`/conversations/${id}`)
+  },
+
+  async start(listingId: number, body: string): Promise<ConversationDetail> {
+    return request<ConversationDetail>('/conversations', {
+      method: 'POST',
+      headers: jsonHeaders(),
+      body: JSON.stringify({ listing_id: listingId, body }),
+    })
+  },
+
+  async sendMessage(conversationId: number, body: string): Promise<Message> {
+    return request<Message>(`/conversations/${conversationId}/messages`, {
+      method: 'POST',
+      headers: jsonHeaders(),
+      body: JSON.stringify({ body }),
+    })
   },
 }

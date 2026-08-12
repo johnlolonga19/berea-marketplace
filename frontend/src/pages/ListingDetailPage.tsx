@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
+import type { FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { listings as listingsApi, ApiError } from '../lib/api'
+import { listings as listingsApi, conversations as conversationsApi, ApiError } from '../lib/api'
 import type { Listing } from '../types'
 import { useAuth } from '../context/AuthContext'
 
@@ -11,6 +12,8 @@ export default function ListingDetailPage() {
   const [listing, setListing] = useState<Listing | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [messageDraft, setMessageDraft] = useState('')
+  const [sendingMessage, setSendingMessage] = useState(false)
 
   useEffect(() => {
     listingsApi
@@ -41,6 +44,19 @@ export default function ListingDetailPage() {
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong')
       setBusy(false)
+    }
+  }
+
+  async function handleSendMessage(e: FormEvent) {
+    e.preventDefault()
+    if (!listing || !messageDraft.trim()) return
+    setSendingMessage(true)
+    try {
+      const conversation = await conversationsApi.start(listing.id, messageDraft.trim())
+      navigate(`/messages/${conversation.id}`)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Something went wrong')
+      setSendingMessage(false)
     }
   }
 
@@ -97,6 +113,38 @@ export default function ListingDetailPage() {
               Delete
             </button>
           </div>
+        )}
+
+        {!isOwner && user && (
+          <form onSubmit={handleSendMessage} className="mt-6 flex flex-col gap-2">
+            <label htmlFor="message-seller" className="text-sm font-medium">
+              Message the seller
+            </label>
+            <textarea
+              id="message-seller"
+              value={messageDraft}
+              onChange={(e) => setMessageDraft(e.target.value)}
+              rows={3}
+              placeholder="Is this still available?"
+              className="rounded border border-gray-300 px-3 py-2"
+            />
+            <button
+              type="submit"
+              disabled={sendingMessage || !messageDraft.trim()}
+              className="self-start rounded bg-gray-900 px-4 py-2 text-sm text-white hover:bg-gray-700 disabled:opacity-50"
+            >
+              {sendingMessage ? 'Sending...' : 'Send message'}
+            </button>
+          </form>
+        )}
+
+        {!isOwner && !user && (
+          <p className="mt-6 text-sm text-gray-600">
+            <Link to="/login" className="font-medium text-gray-900 underline">
+              Log in
+            </Link>{' '}
+            to message the seller.
+          </p>
         )}
       </div>
     </div>

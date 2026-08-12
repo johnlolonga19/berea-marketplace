@@ -14,6 +14,20 @@ from app.schemas.message import MessageCreate, MessageRead
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
 
+def _to_detail(conversation: Conversation) -> ConversationDetail:
+    return ConversationDetail(
+        id=conversation.id,
+        listing_id=conversation.listing_id,
+        listing_title=conversation.listing.title,
+        buyer_id=conversation.buyer_id,
+        buyer_name=conversation.buyer.full_name,
+        seller_id=conversation.seller_id,
+        seller_name=conversation.seller.full_name,
+        created_at=conversation.created_at,
+        messages=[MessageRead.model_validate(m) for m in conversation.messages],
+    )
+
+
 def get_participant_conversation(
     conversation_id: int, db: Session, current_user: User
 ) -> Conversation:
@@ -32,7 +46,7 @@ def start_conversation(
     payload: ConversationCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
-) -> Conversation:
+) -> ConversationDetail:
     listing = db.get(Listing, payload.listing_id)
     if listing is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Listing not found")
@@ -57,7 +71,7 @@ def start_conversation(
     db.add(Message(conversation_id=conversation.id, sender_id=current_user.id, body=payload.body))
     db.commit()
     db.refresh(conversation)
-    return conversation
+    return _to_detail(conversation)
 
 
 @router.get("", response_model=list[ConversationSummary])
@@ -101,8 +115,9 @@ def get_conversation(
     conversation_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
-) -> Conversation:
-    return get_participant_conversation(conversation_id, db, current_user)
+) -> ConversationDetail:
+    conversation = get_participant_conversation(conversation_id, db, current_user)
+    return _to_detail(conversation)
 
 
 @router.post("/{conversation_id}/messages", response_model=MessageRead, status_code=status.HTTP_201_CREATED)

@@ -8,6 +8,8 @@ import ListingDetailPage from './pages/ListingDetailPage'
 import NewListingPage from './pages/NewListingPage'
 import EditListingPage from './pages/EditListingPage'
 import MyListingsPage from './pages/MyListingsPage'
+import MessagesPage from './pages/MessagesPage'
+import ConversationPage from './pages/ConversationPage'
 
 function App() {
   return (
@@ -21,6 +23,8 @@ function App() {
           <Route path="listings/new" element={<NewListingPage />} />
           <Route path="listings/:id/edit" element={<EditListingPage />} />
           <Route path="my-listings" element={<MyListingsPage />} />
+          <Route path="messages" element={<MessagesPage />} />
+          <Route path="messages/:id" element={<ConversationPage />} />
         </Route>
       </Route>
     </Routes>
