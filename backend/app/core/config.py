@@ -23,7 +23,6 @@ class Settings(BaseSettings):
     email_from: str = "onboarding@resend.dev"
 
     verification_code_expire_minutes: int = 15
-    allowed_email_domain: str = "berea.edu"
 
     cors_origins: list[str] = ["http://localhost:5173"]
 

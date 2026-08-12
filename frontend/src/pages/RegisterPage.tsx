@@ -53,7 +53,7 @@ export default function RegisterPage() {
           <input
             type="email"
             required
-            placeholder="yourname@berea.edu"
+            placeholder="you@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="rounded border border-gray-300 px-3 py-2"

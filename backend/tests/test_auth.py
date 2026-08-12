@@ -40,12 +40,9 @@ def test_register_success(client):
     assert "hashed_password" not in body
 
 
-def test_register_rejects_non_berea_email(client):
-    res = client.post(
-        "/api/v1/auth/register",
-        json={"email": "student@gmail.com", "password": "secretpass123", "full_name": "Off Campus"},
-    )
-    assert res.status_code == 422
+def test_register_accepts_any_valid_email_domain(client):
+    body, _ = _register_and_capture_code(client, email="student@gmail.com")
+    assert body["email"] == "student@gmail.com"
 
 
 def test_register_duplicate_email_conflicts(client, register_user):
