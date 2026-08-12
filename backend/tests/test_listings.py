@@ -109,3 +109,71 @@ def test_list_listings_filter_by_is_sold(client, auth_headers):
     assert res.status_code == 200
     titles = [l["title"] for l in res.json()]
     assert titles == ["Sold item"]
+
+
+def test_search_matches_title_case_insensitively(client, auth_headers):
+    headers = auth_headers()
+    _create_listing(client, headers, title="Calculus Textbook")
+    _create_listing(client, headers, title="Mini Fridge")
+
+    res = client.get("/api/v1/listings", params={"q": "calculus"})
+    assert res.status_code == 200
+    titles = [l["title"] for l in res.json()]
+    assert titles == ["Calculus Textbook"]
+
+
+def test_search_matches_description(client, auth_headers):
+    headers = auth_headers()
+    _create_listing(client, headers, title="Lamp", description="Great for a dorm desk")
+    _create_listing(client, headers, title="Bike", description="21-speed mountain bike")
+
+    res = client.get("/api/v1/listings", params={"q": "dorm"})
+    assert res.status_code == 200
+    titles = [l["title"] for l in res.json()]
+    assert titles == ["Lamp"]
+
+
+def test_search_with_no_matches_returns_empty(client, auth_headers):
+    headers = auth_headers()
+    _create_listing(client, headers, title="Lamp")
+
+    res = client.get("/api/v1/listings", params={"q": "nonexistent"})
+    assert res.status_code == 200
+    assert res.json() == []
+
+
+def test_filter_by_price_range(client, auth_headers):
+    headers = auth_headers()
+    _create_listing(client, headers, title="Cheap", price="5.00")
+    _create_listing(client, headers, title="Mid", price="50.00")
+    _create_listing(client, headers, title="Expensive", price="500.00")
+
+    res = client.get("/api/v1/listings", params={"min_price": "10.00", "max_price": "100.00"})
+    assert res.status_code == 200
+    titles = [l["title"] for l in res.json()]
+    assert titles == ["Mid"]
+
+
+def test_filter_by_min_price_only(client, auth_headers):
+    headers = auth_headers()
+    _create_listing(client, headers, title="Cheap", price="5.00")
+    _create_listing(client, headers, title="Expensive", price="500.00")
+
+    res = client.get("/api/v1/listings", params={"min_price": "100.00"})
+    assert res.status_code == 200
+    titles = [l["title"] for l in res.json()]
+    assert titles == ["Expensive"]
+
+
+def test_combined_search_and_price_filters(client, auth_headers):
+    headers = auth_headers()
+    _create_listing(client, headers, title="Cheap textbook", price="5.00")
+    _create_listing(client, headers, title="Pricey textbook", price="500.00")
+    _create_listing(client, headers, title="Cheap fridge", price="5.00")
+
+    res = client.get(
+        "/api/v1/listings", params={"q": "textbook", "max_price": "100.00"}
+    )
+    assert res.status_code == 200
+    titles = [l["title"] for l in res.json()]
+    assert titles == ["Cheap textbook"]

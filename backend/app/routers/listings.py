@@ -1,4 +1,7 @@
+from decimal import Decimal
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -37,13 +40,25 @@ def create_listing(
 @router.get("", response_model=list[ListingRead])
 def list_listings(
     db: Session = Depends(get_db),
+    q: str | None = Query(default=None, min_length=1, max_length=255),
     is_sold: bool | None = Query(default=None),
+    min_price: Decimal | None = Query(default=None, ge=0),
+    max_price: Decimal | None = Query(default=None, ge=0),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=100),
 ) -> list[Listing]:
     query = db.query(Listing)
+    if q is not None:
+        pattern = f"%{q}%"
+        query = query.filter(
+            or_(Listing.title.ilike(pattern), Listing.description.ilike(pattern))
+        )
     if is_sold is not None:
         query = query.filter(Listing.is_sold == is_sold)
+    if min_price is not None:
+        query = query.filter(Listing.price >= min_price)
+    if max_price is not None:
+        query = query.filter(Listing.price <= max_price)
     return query.order_by(Listing.created_at.desc()).offset(skip).limit(limit).all()
 
 

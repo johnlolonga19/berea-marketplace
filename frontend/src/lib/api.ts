@@ -68,10 +68,20 @@ export const auth = {
   },
 }
 
+export interface ListingFilters {
+  q?: string
+  is_sold?: boolean
+  min_price?: string
+  max_price?: string
+}
+
 export const listings = {
-  async list(params?: { is_sold?: boolean }): Promise<Listing[]> {
+  async list(params?: ListingFilters): Promise<Listing[]> {
     const query = new URLSearchParams()
+    if (params?.q) query.set('q', params.q)
     if (params?.is_sold !== undefined) query.set('is_sold', String(params.is_sold))
+    if (params?.min_price) query.set('min_price', params.min_price)
+    if (params?.max_price) query.set('max_price', params.max_price)
     const qs = query.toString()
     return request<Listing[]>(`/listings${qs ? `?${qs}` : ''}`)
   },
