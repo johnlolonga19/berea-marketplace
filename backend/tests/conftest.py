@@ -7,6 +7,7 @@ from sqlalchemy.pool import StaticPool
 from app import models  # noqa: F401
 from app.core.database import Base, get_db
 from app.main import app
+from app.models.user import User
 
 engine = create_engine(
     "sqlite:///:memory:",
@@ -52,10 +53,26 @@ def register_user(client):
     return _register
 
 
+def _verify_user_directly(email: str) -> None:
+    """Bypass the email code flow for tests that just need a logged-in user.
+
+    The actual verify-code/resend-code flow has its own dedicated tests in
+    test_auth.py.
+    """
+    db = TestingSessionLocal()
+    try:
+        user = db.query(User).filter(User.email == email).one()
+        user.is_verified = True
+        db.commit()
+    finally:
+        db.close()
+
+
 @pytest.fixture
 def auth_headers(client, register_user):
     def _login(email="alice@berea.edu", password="secretpass123", full_name="Alice"):
         register_user(email=email, password=password, full_name=full_name)
+        _verify_user_directly(email)
         res = client.post(
             "/api/v1/auth/login",
             data={"username": email, "password": password},

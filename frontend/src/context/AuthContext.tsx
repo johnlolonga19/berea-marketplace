@@ -8,6 +8,7 @@ interface AuthContextValue {
   loading: boolean
   login: (email: string, password: string) => Promise<void>
   register: (email: string, password: string, fullName: string) => Promise<void>
+  verifyCode: (email: string, code: string) => Promise<void>
   logout: () => void
 }
 
@@ -37,8 +38,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function register(email: string, password: string, fullName: string) {
+    // Accounts start unverified, so we can't log in yet - the caller sends
+    // the user to /verify-email to enter the code from their inbox.
     await auth.register({ email, password, full_name: fullName })
-    await login(email, password)
+  }
+
+  async function verifyCode(email: string, code: string) {
+    const token = await auth.verifyCode(email, code)
+    localStorage.setItem('access_token', token)
+    setUser(await auth.me())
   }
 
   function logout() {
@@ -47,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, verifyCode, logout }}>
       {children}
     </AuthContext.Provider>
   )

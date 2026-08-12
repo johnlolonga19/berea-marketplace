@@ -30,7 +30,7 @@ function makeListing(overrides: Partial<Listing>): Listing {
 }
 
 function mockUser(id: number): User {
-  return { id, email: 'a@berea.edu', full_name: 'Alice', is_active: true, created_at: '2026-01-01' }
+  return { id, email: 'a@berea.edu', full_name: 'Alice', is_active: true, is_verified: true, created_at: '2026-01-01' }
 }
 
 function renderPage() {
@@ -48,6 +48,7 @@ describe('MyListingsPage', () => {
       loading: false,
       login: vi.fn(),
       register: vi.fn(),
+    verifyCode: vi.fn(),
       logout: vi.fn(),
     })
     vi.mocked(listingsApi.list).mockResolvedValue([
@@ -67,6 +68,7 @@ describe('MyListingsPage', () => {
       loading: false,
       login: vi.fn(),
       register: vi.fn(),
+    verifyCode: vi.fn(),
       logout: vi.fn(),
     })
     vi.mocked(listingsApi.list).mockResolvedValue([makeListing({ id: 2, owner_id: 2 })])

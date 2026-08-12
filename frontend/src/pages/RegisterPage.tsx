@@ -10,16 +10,23 @@ export default function RegisterPage() {
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match')
+      return
+    }
+
     setSubmitting(true)
     try {
       await register(email, password, fullName)
-      navigate('/')
+      navigate(`/verify-email?email=${encodeURIComponent(email)}`)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong')
     } finally {
@@ -46,6 +53,7 @@ export default function RegisterPage() {
           <input
             type="email"
             required
+            placeholder="yourname@berea.edu"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="rounded border border-gray-300 px-3 py-2"
@@ -59,6 +67,17 @@ export default function RegisterPage() {
             minLength={8}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            className="rounded border border-gray-300 px-3 py-2"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          Confirm password
+          <input
+            type="password"
+            required
+            minLength={8}
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
             className="rounded border border-gray-300 px-3 py-2"
           />
         </label>

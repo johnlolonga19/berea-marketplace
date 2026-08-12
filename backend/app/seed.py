@@ -39,6 +39,7 @@ def seed() -> None:
             email=DEMO_EMAIL,
             hashed_password=hash_password(DEMO_PASSWORD),
             full_name=DEMO_NAME,
+            is_verified=True,
         )
         db.add(demo_user)
         db.flush()

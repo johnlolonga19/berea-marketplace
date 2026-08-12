@@ -10,3 +10,4 @@ python-jose[cryptography]==3.3.0
 bcrypt==5.0.0
 python-multipart==0.0.12
 cloudinary==1.41.0
+resend==2.36.0

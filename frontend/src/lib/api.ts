@@ -10,7 +10,14 @@ import type {
 
 const API_URL = import.meta.env.VITE_API_URL
 
-export class ApiError extends Error {}
+export class ApiError extends Error {
+  status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.status = status
+  }
+}
 
 function extractErrorMessage(body: unknown, fallback: string): string {
   if (body && typeof body === 'object' && 'detail' in body) {
@@ -38,7 +45,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   if (!res.ok) {
     const body = await res.json().catch(() => null)
-    throw new ApiError(extractErrorMessage(body, `Request failed (${res.status})`))
+    throw new ApiError(extractErrorMessage(body, `Request failed (${res.status})`), res.status)
   }
 
   if (res.status === 204) return undefined as T
@@ -73,6 +80,26 @@ export const auth = {
 
   async me(): Promise<User> {
     return request<User>('/auth/me')
+  },
+
+  async verifyCode(email: string, code: string): Promise<string> {
+    const { access_token } = await request<{ access_token: string; token_type: string }>(
+      '/auth/verify-code',
+      {
+        method: 'POST',
+        headers: jsonHeaders(),
+        body: JSON.stringify({ email, code }),
+      },
+    )
+    return access_token
+  },
+
+  async resendCode(email: string): Promise<void> {
+    await request<{ detail: string }>('/auth/resend-code', {
+      method: 'POST',
+      headers: jsonHeaders(),
+      body: JSON.stringify({ email }),
+    })
   },
 }
 

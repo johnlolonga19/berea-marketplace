@@ -8,6 +8,7 @@ vi.mock('../lib/api', () => ({
   auth: {
     login: vi.fn(),
     register: vi.fn(),
+    verifyCode: vi.fn(),
     me: vi.fn(),
   },
   ApiError: class ApiError extends Error {},
@@ -18,17 +19,19 @@ const demoUser = {
   email: 'a@berea.edu',
   full_name: 'Alice',
   is_active: true,
+  is_verified: true,
   created_at: '2026-01-01T00:00:00Z',
 }
 
 function TestConsumer() {
-  const { user, loading, login, register, logout } = useAuth()
+  const { user, loading, login, register, verifyCode, logout } = useAuth()
   return (
     <div>
       <span data-testid="loading">{String(loading)}</span>
       <span data-testid="user">{user ? user.email : 'none'}</span>
       <button onClick={() => login('a@berea.edu', 'pw')}>login</button>
       <button onClick={() => register('a@berea.edu', 'pw', 'Alice')}>register</button>
+      <button onClick={() => verifyCode('a@berea.edu', '123456')}>verify</button>
       <button onClick={logout}>logout</button>
     </div>
   )
@@ -61,7 +64,7 @@ describe('AuthContext', () => {
 
   it('clears an invalid stored token', async () => {
     localStorage.setItem('access_token', 'bad')
-    vi.mocked(auth.me).mockRejectedValue(new ApiError('unauthorized'))
+    vi.mocked(auth.me).mockRejectedValue(new ApiError('unauthorized', 401))
 
     renderConsumer()
 
@@ -82,21 +85,35 @@ describe('AuthContext', () => {
     expect(localStorage.getItem('access_token')).toBe('new-token')
   })
 
-  it('register calls register then logs in', async () => {
+  it('register calls the API but does not log the user in', async () => {
     vi.mocked(auth.register).mockResolvedValue(demoUser)
-    vi.mocked(auth.login).mockResolvedValue('tok2')
-    vi.mocked(auth.me).mockResolvedValue(demoUser)
 
     renderConsumer()
     await waitFor(() => expect(screen.getByTestId('loading')).toHaveTextContent('false'))
     await userEvent.click(screen.getByText('register'))
 
-    expect(auth.register).toHaveBeenCalledWith({
-      email: 'a@berea.edu',
-      password: 'pw',
-      full_name: 'Alice',
-    })
+    await waitFor(() =>
+      expect(auth.register).toHaveBeenCalledWith({
+        email: 'a@berea.edu',
+        password: 'pw',
+        full_name: 'Alice',
+      }),
+    )
+    expect(auth.login).not.toHaveBeenCalled()
+    expect(screen.getByTestId('user')).toHaveTextContent('none')
+  })
+
+  it('verifyCode stores the token and loads the user', async () => {
+    vi.mocked(auth.verifyCode).mockResolvedValue('verify-token')
+    vi.mocked(auth.me).mockResolvedValue(demoUser)
+
+    renderConsumer()
+    await waitFor(() => expect(screen.getByTestId('loading')).toHaveTextContent('false'))
+    await userEvent.click(screen.getByText('verify'))
+
+    expect(auth.verifyCode).toHaveBeenCalledWith('a@berea.edu', '123456')
     await waitFor(() => expect(screen.getByTestId('user')).toHaveTextContent('a@berea.edu'))
+    expect(localStorage.getItem('access_token')).toBe('verify-token')
   })
 
   it('logout clears the user and stored token', async () => {

@@ -60,7 +60,7 @@ describe('ListingForm', () => {
   })
 
   it('shows an error message if onSubmit rejects', async () => {
-    const onSubmit = vi.fn().mockRejectedValue(new ApiError('Something broke'))
+    const onSubmit = vi.fn().mockRejectedValue(new ApiError('Something broke', 500))
     render(<ListingForm submitLabel="Create listing" onSubmit={onSubmit} />)
 
     await userEvent.type(screen.getByLabelText('Title'), 'Desk Lamp')

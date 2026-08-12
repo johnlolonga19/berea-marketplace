@@ -36,7 +36,7 @@ const thread: ConversationDetail = {
 }
 
 function asUser(id: number): User {
-  return { id, email: `u${id}@berea.edu`, full_name: `User ${id}`, is_active: true, created_at: '2026-01-01' }
+  return { id, email: `u${id}@berea.edu`, full_name: `User ${id}`, is_active: true, is_verified: true, created_at: '2026-01-01' }
 }
 
 function mockAuth(user: User | null) {
@@ -45,6 +45,7 @@ function mockAuth(user: User | null) {
     loading: false,
     login: vi.fn(),
     register: vi.fn(),
+    verifyCode: vi.fn(),
     logout: vi.fn(),
   })
 }

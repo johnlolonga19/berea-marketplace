@@ -13,6 +13,7 @@ const demoUser = {
   email: 'a@berea.edu',
   full_name: 'Alice',
   is_active: true,
+  is_verified: true,
   created_at: '2026-01-01T00:00:00Z',
 }
 
@@ -36,6 +37,7 @@ describe('ProtectedRoute', () => {
       loading: true,
       login: vi.fn(),
       register: vi.fn(),
+    verifyCode: vi.fn(),
       logout: vi.fn(),
     })
 
@@ -49,6 +51,7 @@ describe('ProtectedRoute', () => {
       loading: false,
       login: vi.fn(),
       register: vi.fn(),
+    verifyCode: vi.fn(),
       logout: vi.fn(),
     })
 
@@ -62,6 +65,7 @@ describe('ProtectedRoute', () => {
       loading: false,
       login: vi.fn(),
       register: vi.fn(),
+    verifyCode: vi.fn(),
       logout: vi.fn(),
     })
 

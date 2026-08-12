@@ -10,17 +10,24 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [needsVerification, setNeedsVerification] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
+    setNeedsVerification(false)
     setSubmitting(true)
     try {
       await login(email, password)
       navigate('/')
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong')
+      if (err instanceof ApiError) {
+        setError(err.message)
+        setNeedsVerification(err.status === 403)
+      } else {
+        setError('Something went wrong')
+      }
     } finally {
       setSubmitting(false)
     }
@@ -51,6 +58,14 @@ export default function LoginPage() {
           />
         </label>
         {error && <p className="text-sm text-red-600">{error}</p>}
+        {needsVerification && (
+          <Link
+            to={`/verify-email?email=${encodeURIComponent(email)}`}
+            className="text-sm font-medium text-gray-900 underline"
+          >
+            Verify your email
+          </Link>
+        )}
         <button
           type="submit"
           disabled={submitting}

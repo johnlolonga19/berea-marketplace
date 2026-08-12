@@ -1,3 +1,4 @@
+import secrets
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
@@ -22,6 +23,10 @@ def create_access_token(subject: str, expires_delta: timedelta | None = None) ->
     )
     to_encode = {"sub": subject, "exp": expire}
     return jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
+
+
+def generate_verification_code() -> str:
+    return f"{secrets.randbelow(1_000_000):06d}"
 
 
 def decode_subject(token: str) -> str | None:
