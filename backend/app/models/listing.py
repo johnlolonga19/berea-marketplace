@@ -30,5 +30,7 @@ class Listing(Base):
         nullable=False,
     )
 
-    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    owner_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     owner: Mapped["User"] = relationship(back_populates="listings")
