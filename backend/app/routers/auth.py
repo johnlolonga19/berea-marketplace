@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -20,6 +21,8 @@ from app.schemas.verification import ResendCodeRequest, VerifyCodeRequest
 from app.services.email_service import send_verification_code
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+logger = logging.getLogger(__name__)
 
 settings = get_settings()
 
@@ -65,7 +68,7 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)) -> User:
     except Exception:
         # Registration itself succeeded; don't fail the request just because the
         # email couldn't be sent. The user can request a new code via /resend-code.
-        pass
+        logger.exception("Failed to send verification code to %s", user.email)
 
     return user
 
@@ -125,7 +128,7 @@ def resend_code(payload: ResendCodeRequest, db: Session = Depends(get_db)) -> di
         try:
             send_verification_code(user.email, code)
         except Exception:
-            pass
+            logger.exception("Failed to send verification code to %s", user.email)
 
     return {
         "detail": "If that email is registered and not yet verified, a new code has been sent."

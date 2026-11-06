@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     project_name: str = "Berea Marketplace"
     api_v1_prefix: str = "/api/v1"
@@ -19,8 +19,10 @@ class Settings(BaseSettings):
     cloudinary_api_key: str = ""
     cloudinary_api_secret: str = ""
 
-    resend_api_key: str = ""
-    email_from: str = "onboarding@resend.dev"
+    brevo_api_key: str = ""
+    # Must be a sender address verified in Brevo (Senders, Domains & Dedicated IPs).
+    email_from: str = ""
+    email_from_name: str = "Berea Marketplace"
 
     verification_code_expire_minutes: int = 15
 

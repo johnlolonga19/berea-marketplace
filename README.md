@@ -9,7 +9,7 @@ Built as a full-stack project: a FastAPI backend with a real Postgres database, 
 
 ## Features
 
-- **Accounts with real email verification** — sign up, get a 6-digit code emailed to you (via [Resend](https://resend.com)), enter it to activate your account. Login is blocked until verified.
+- **Accounts with real email verification** — sign up, get a 6-digit code emailed to you (via [Brevo](https://www.brevo.com)), enter it to activate your account. Login is blocked until verified.
 - **Listings** — create, edit, delete, and mark items as sold. Photos upload to [Cloudinary](https://cloudinary.com).
 - **Search & filtering** — keyword search across title/description, min/max price, and available/sold status.
 - **In-app messaging** — message a listing's seller directly (Facebook Marketplace–style); a threaded inbox for both buyer and seller sides of a conversation.
@@ -32,7 +32,7 @@ backend/
     models/       # SQLAlchemy models: User, Listing, Conversation, Message
     schemas/      # Pydantic request/response schemas
     routers/      # auth, listings, uploads, conversations, health
-    services/     # Cloudinary and Resend integrations
+    services/     # Cloudinary and Brevo integrations
     seed.py       # demo user + sample listings for local dev
   alembic/         # migrations
   tests/           # pytest suite (runs against an isolated in-memory SQLite DB)
@@ -58,7 +58,7 @@ cd backend
 python3.13 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env   # fill in DATABASE_URL, CLOUDINARY_*, RESEND_API_KEY
+cp .env.example .env   # fill in DATABASE_URL, CLOUDINARY_*, BREVO_API_KEY, EMAIL_FROM
 alembic upgrade head
 python -m app.seed     # optional: creates demo@berea.edu / demopassword123 + sample listings
 uvicorn app.main:app --reload --port 8001
