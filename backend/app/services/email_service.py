@@ -37,8 +37,9 @@ def send_verification_code(to_email: str, code: str) -> None:
         method="POST",
     )
     try:
-        with urllib.request.urlopen(request, timeout=10):
-            pass
+        with urllib.request.urlopen(request, timeout=10) as response:
+            body = response.read().decode(errors="replace")
+        logger.info("Brevo accepted email to %s from %s: %s", to_email, settings.email_from, body)
     except urllib.error.HTTPError as exc:
         body = exc.read().decode(errors="replace")
         logger.error("Brevo rejected email to %s: %s %s", to_email, exc.code, body)

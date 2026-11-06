@@ -1,8 +1,13 @@
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.routers import auth, conversations, health, listings, uploads
+
+# Uvicorn only configures its own loggers; make app.* INFO logs show up too.
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
 settings = get_settings()
 
