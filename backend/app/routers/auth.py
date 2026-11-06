@@ -1,4 +1,5 @@
 import logging
+import secrets
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -17,12 +18,19 @@ from app.core.security import (
 from app.models.user import User
 from app.schemas.token import Token
 from app.schemas.user import UserCreate, UserRead
-from app.schemas.verification import ResendCodeRequest, VerifyCodeRequest
-from app.services.email_service import send_verification_code
+from app.schemas.verification import (
+    ForgotPasswordRequest,
+    ResendCodeRequest,
+    ResetPasswordRequest,
+    VerifyCodeRequest,
+)
+from app.services.email_service import send_password_reset_code, send_verification_code
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 logger = logging.getLogger(__name__)
+
+MAX_RESET_ATTEMPTS = 5
 
 settings = get_settings()
 
@@ -34,6 +42,12 @@ def _is_expired(expires_at: datetime) -> bool:
     if expires_at.tzinfo is None:
         expires_at = expires_at.replace(tzinfo=timezone.utc)
     return expires_at < datetime.now(timezone.utc)
+
+
+def _clear_reset_code(user: User) -> None:
+    user.password_reset_code = None
+    user.password_reset_expires_at = None
+    user.password_reset_attempts = 0
 
 
 def _issue_code(user: User) -> str:
@@ -133,6 +147,58 @@ def resend_code(payload: ResendCodeRequest, db: Session = Depends(get_db)) -> di
     return {
         "detail": "If that email is registered and not yet verified, a new code has been sent."
     }
+
+
+@router.post("/forgot-password")
+def forgot_password(
+    payload: ForgotPasswordRequest, db: Session = Depends(get_db)
+) -> dict[str, str]:
+    user = db.query(User).filter(User.email == payload.email).first()
+    if user is not None and user.is_active:
+        code = generate_verification_code()
+        user.password_reset_code = code
+        user.password_reset_expires_at = datetime.now(timezone.utc) + timedelta(
+            minutes=settings.verification_code_expire_minutes
+        )
+        user.password_reset_attempts = 0
+        db.commit()
+        try:
+            send_password_reset_code(user.email, code)
+        except Exception:
+            logger.exception("Failed to send password reset code to %s", user.email)
+
+    # Same response either way so this can't be used to discover which emails have accounts.
+    return {"detail": "If that email is registered, a password reset code has been sent."}
+
+
+@router.post("/reset-password")
+def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)) -> dict[str, str]:
+    user = db.query(User).filter(User.email == payload.email).first()
+    invalid = HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired code"
+    )
+    if (
+        user is None
+        or user.password_reset_code is None
+        or user.password_reset_expires_at is None
+        or _is_expired(user.password_reset_expires_at)
+    ):
+        raise invalid
+
+    if not secrets.compare_digest(user.password_reset_code, payload.code):
+        user.password_reset_attempts += 1
+        if user.password_reset_attempts >= MAX_RESET_ATTEMPTS:
+            # Too many guesses: burn the code so it can't be brute-forced.
+            _clear_reset_code(user)
+        db.commit()
+        raise invalid
+
+    user.hashed_password = hash_password(payload.new_password)
+    # Receiving the code proves they own the email, so this also verifies them.
+    user.is_verified = True
+    _clear_reset_code(user)
+    db.commit()
+    return {"detail": "Your password has been reset."}
 
 
 @router.get("/me", response_model=UserRead)

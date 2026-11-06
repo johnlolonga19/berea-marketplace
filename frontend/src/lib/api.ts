@@ -101,6 +101,22 @@ export const auth = {
       body: JSON.stringify({ email }),
     })
   },
+
+  async forgotPassword(email: string): Promise<void> {
+    await request<{ detail: string }>('/auth/forgot-password', {
+      method: 'POST',
+      headers: jsonHeaders(),
+      body: JSON.stringify({ email }),
+    })
+  },
+
+  async resetPassword(email: string, code: string, newPassword: string): Promise<void> {
+    await request<{ detail: string }>('/auth/reset-password', {
+      method: 'POST',
+      headers: jsonHeaders(),
+      body: JSON.stringify({ email, code, new_password: newPassword }),
+    })
+  },
 }
 
 export interface ListingFilters {

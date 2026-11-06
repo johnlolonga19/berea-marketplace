@@ -57,7 +57,13 @@ export default function LoginPage() {
             className="rounded border border-gray-300 px-3 py-2"
           />
         </label>
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        <Link
+          to={`/forgot-password${email ? `?email=${encodeURIComponent(email)}` : ''}`}
+          className="-mt-2 self-end text-sm text-gray-600 underline hover:text-gray-900"
+        >
+          Forgot password?
+        </Link>
+        {error &&<p className="text-sm text-red-600">{error}</p>}
         {needsVerification && (
           <Link
             to={`/verify-email?email=${encodeURIComponent(email)}`}

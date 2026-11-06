@@ -43,6 +43,15 @@ async function submit(email = 'a@berea.edu', password = 'secretpass123') {
 }
 
 describe('LoginPage', () => {
+  it('links to forgot-password, carrying over the typed email', async () => {
+    mockAuth(vi.fn())
+    renderPage()
+    const link = screen.getByRole('link', { name: 'Forgot password?' })
+    expect(link).toHaveAttribute('href', '/forgot-password')
+    await userEvent.type(screen.getByLabelText('Email'), 'a@berea.edu')
+    expect(link).toHaveAttribute('href', '/forgot-password?email=a%40berea.edu')
+  })
+
   it('logs in and navigates home on success', async () => {
     const login = vi.fn<(email: string, password: string) => Promise<void>>().mockResolvedValue(undefined)
     mockAuth(login)

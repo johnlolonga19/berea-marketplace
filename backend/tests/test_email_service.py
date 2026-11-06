@@ -6,7 +6,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from app.core.config import get_settings
-from app.services.email_service import BREVO_SEND_URL, send_verification_code
+from app.services.email_service import (
+    BREVO_SEND_URL,
+    send_password_reset_code,
+    send_verification_code,
+)
 
 
 @pytest.fixture
@@ -31,6 +35,16 @@ def test_sends_code_via_brevo_api(brevo_settings):
     assert body["sender"]["email"] == "sender@example.com"
     assert body["to"] == [{"email": "buyer@example.com"}]
     assert "123456" in body["htmlContent"]
+
+
+def test_sends_password_reset_code(brevo_settings):
+    with patch("app.services.email_service.urllib.request.urlopen") as mock_urlopen:
+        mock_urlopen.return_value.__enter__.return_value = MagicMock()
+        send_password_reset_code("buyer@example.com", "654321")
+
+    body = json.loads(mock_urlopen.call_args.args[0].data)
+    assert "Reset" in body["subject"]
+    assert "654321" in body["htmlContent"]
 
 
 def test_raises_when_brevo_rejects(brevo_settings):
