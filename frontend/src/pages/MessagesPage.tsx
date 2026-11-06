@@ -28,7 +28,7 @@ export default function MessagesPage() {
             <li key={c.id}>
               <Link to={`/messages/${c.id}`} className="block px-4 py-3 hover:bg-gray-50">
                 <div className="flex items-baseline justify-between gap-4">
-                  <span className="font-medium">{c.other_user_name}</span>
+                  <span className="min-w-0 truncate font-medium">{c.other_user_name}</span>
                   <span className="shrink-0 text-xs text-gray-500">
                     {new Date(c.last_message_at).toLocaleString()}
                   </span>
