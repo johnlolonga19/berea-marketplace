@@ -16,7 +16,7 @@ from app.schemas.conversation import (
     ConversationSummary,
     UnreadCount,
 )
-from app.schemas.message import MessageCreate, MessageRead
+from app.schemas.message import MessageCreate, MessageRead, MessageStatus
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
@@ -45,6 +45,11 @@ def _mark_read(conversation: Conversation, user: User) -> None:
         conversation.seller_last_read_at = now
 
 
+def _touch(user: User) -> None:
+    """Record that this user's app just checked in (drives "Delivered" receipts)."""
+    user.last_active_at = datetime.now(timezone.utc)
+
+
 def _user_conversations(db: Session, user: User) -> list[Conversation]:
     return (
         db.query(Conversation)
@@ -53,7 +58,28 @@ def _user_conversations(db: Session, user: User) -> list[Conversation]:
     )
 
 
-def _to_detail(conversation: Conversation) -> ConversationDetail:
+def _status(message: Message, conversation: Conversation, viewer: User) -> MessageStatus | None:
+    if message.sender_id != viewer.id:
+        return None
+    if conversation.buyer_id == viewer.id:
+        other, other_read_at = conversation.seller, conversation.seller_last_read_at
+    else:
+        other, other_read_at = conversation.buyer, conversation.buyer_last_read_at
+    sent_at = _as_utc(message.created_at)
+    if other_read_at is not None and _as_utc(other_read_at) >= sent_at:
+        return "read"
+    if other.last_active_at is not None and _as_utc(other.last_active_at) >= sent_at:
+        return "delivered"
+    return "sent"
+
+
+def _message_read(message: Message, conversation: Conversation, viewer: User) -> MessageRead:
+    out = MessageRead.model_validate(message)
+    out.status = _status(message, conversation, viewer)
+    return out
+
+
+def _to_detail(conversation: Conversation, viewer: User) -> ConversationDetail:
     return ConversationDetail(
         id=conversation.id,
         listing_id=conversation.listing_id,
@@ -63,7 +89,7 @@ def _to_detail(conversation: Conversation) -> ConversationDetail:
         seller_id=conversation.seller_id,
         seller_name=conversation.seller.full_name,
         created_at=conversation.created_at,
-        messages=[MessageRead.model_validate(m) for m in conversation.messages],
+        messages=[_message_read(m, conversation, viewer) for m in conversation.messages],
     )
 
 
@@ -109,15 +135,18 @@ def start_conversation(
 
     db.add(Message(conversation_id=conversation.id, sender_id=current_user.id, body=payload.body))
     _mark_read(conversation, current_user)
+    _touch(current_user)
     db.commit()
     db.refresh(conversation)
-    return _to_detail(conversation)
+    return _to_detail(conversation, current_user)
 
 
 @router.get("", response_model=list[ConversationSummary])
 def list_conversations(
     db: Session = Depends(get_db), current_user: User = Depends(get_current_active_user)
 ) -> list[ConversationSummary]:
+    _touch(current_user)
+    db.commit()
     summaries: list[ConversationSummary] = []
     for conversation in _user_conversations(db, current_user):
         if not conversation.messages:
@@ -148,6 +177,10 @@ def list_conversations(
 def unread_count(
     db: Session = Depends(get_db), current_user: User = Depends(get_current_active_user)
 ) -> UnreadCount:
+    # Polled by the nav badge whenever the app is open, so this is what marks
+    # incoming messages "Delivered" for their senders.
+    _touch(current_user)
+    db.commit()
     count = sum(
         1 for c in _user_conversations(db, current_user) if _unread_count(c, current_user) > 0
     )
@@ -163,9 +196,10 @@ def get_conversation(
     conversation = get_participant_conversation(conversation_id, db, current_user)
     # Opening the thread counts as reading it.
     _mark_read(conversation, current_user)
+    _touch(current_user)
     db.commit()
     db.refresh(conversation)
-    return _to_detail(conversation)
+    return _to_detail(conversation, current_user)
 
 
 @router.post("/{conversation_id}/messages", response_model=MessageRead, status_code=status.HTTP_201_CREATED)
@@ -174,11 +208,12 @@ def send_message(
     payload: MessageCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
-) -> Message:
+) -> MessageRead:
     conversation = get_participant_conversation(conversation_id, db, current_user)
     message = Message(conversation_id=conversation.id, sender_id=current_user.id, body=payload.body)
     db.add(message)
     _mark_read(conversation, current_user)
+    _touch(current_user)
     db.commit()
     db.refresh(message)
-    return message
+    return _message_read(message, conversation, current_user)

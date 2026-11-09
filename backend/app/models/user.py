@@ -26,6 +26,8 @@ class User(Base):
     password_reset_attempts: Mapped[int] = mapped_column(
         Integer, default=0, server_default="0", nullable=False
     )
+    # Last time this user's app checked for messages; used for "Delivered" receipts.
+    last_active_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
     )

@@ -40,6 +40,8 @@ export interface Message {
   sender_id: number
   body: string
   created_at: string
+  /** Receipt for your own messages; null/absent on messages you received. */
+  status?: 'sent' | 'delivered' | 'read' | null
 }
 
 export interface ConversationDetail {

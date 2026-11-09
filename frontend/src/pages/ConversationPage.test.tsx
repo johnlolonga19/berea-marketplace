@@ -107,6 +107,31 @@ describe('ConversationPage', () => {
     expect(input).toHaveValue('')
   })
 
+  it('shows a receipt only under your most recent message', async () => {
+    vi.mocked(conversationsApi.get).mockResolvedValue({
+      ...thread,
+      messages: [
+        { id: 1, conversation_id: 1, sender_id: 2, body: 'First', created_at: '2026-01-01T00:00:00Z', status: 'read' },
+        { id: 2, conversation_id: 1, sender_id: 1, body: 'Reply', created_at: '2026-01-01T00:01:00Z', status: null },
+        { id: 3, conversation_id: 1, sender_id: 2, body: 'Second', created_at: '2026-01-01T00:02:00Z', status: 'sent' },
+      ],
+    })
+    mockAuth(asUser(2))
+    renderPage()
+    await screen.findByText('Second')
+    const receipts = screen.getAllByTestId('receipt')
+    expect(receipts).toHaveLength(1)
+    expect(receipts[0]).toHaveTextContent('Sent')
+  })
+
+  it('shows no receipt when your last message has none (e.g. received only)', async () => {
+    vi.mocked(conversationsApi.get).mockResolvedValue(thread)
+    mockAuth(asUser(1)) // seller only received the buyer's message
+    renderPage()
+    await screen.findByText('Is this available?')
+    expect(screen.queryByTestId('receipt')).not.toBeInTheDocument()
+  })
+
   describe('live updates', () => {
     beforeEach(() => {
       vi.clearAllMocks()
@@ -149,6 +174,20 @@ describe('ConversationPage', () => {
       expect(conversationsApi.get).toHaveBeenCalledTimes(3)
       expect(onUnreadChanged).toHaveBeenCalledTimes(1) // nothing new, no extra refetch
       window.removeEventListener('unread-changed', onUnreadChanged)
+    })
+
+    it('updates the receipt from Delivered to Seen without new messages', async () => {
+      const mine = { ...thread.messages[0], sender_id: 2 }
+      vi.mocked(conversationsApi.get)
+        .mockResolvedValueOnce({ ...thread, messages: [{ ...mine, status: 'delivered' }] })
+        .mockResolvedValue({ ...thread, messages: [{ ...mine, status: 'read' }] })
+      mockAuth(asUser(2))
+      renderPage()
+      expect(await screen.findByTestId('receipt')).toHaveTextContent('Delivered')
+
+      await act(() => vi.advanceTimersByTimeAsync(CHAT_POLL_MS))
+
+      await waitFor(() => expect(screen.getByTestId('receipt')).toHaveTextContent('Seen'))
     })
 
     it('keeps showing the thread if a background poll fails', async () => {

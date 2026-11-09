@@ -9,6 +9,8 @@ import { useAuth } from '../context/AuthContext'
 /** How often an open thread checks for new messages. */
 export const CHAT_POLL_MS = 4_000
 
+const RECEIPT_LABELS = { sent: 'Sent', delivered: 'Delivered', read: 'Seen' } as const
+
 /** Union by id, oldest first, so a poll and a just-sent message can't clobber each other. */
 function mergeMessages(current: Message[], incoming: Message[]): Message[] {
   const byId = new Map(current.map((m) => [m.id, m]))
@@ -35,14 +37,14 @@ export default function ConversationPage() {
         .then((fresh) => {
           const hasNew = fresh.messages.some((m) => !seenIds.current.has(m.id))
           fresh.messages.forEach((m) => seenIds.current.add(m.id))
-          if (!isInitial && !hasNew) return
+          // Always apply: even with no new messages, receipts (Delivered -> Seen) may have changed.
           setConversation((prev) =>
             prev && prev.id === fresh.id
               ? { ...fresh, messages: mergeMessages(prev.messages, fresh.messages) }
               : fresh,
           )
-          // Keep the nav badge in sync; only worth a refetch when something changed.
-          notifyUnreadChanged()
+          // Keep the nav badge in sync; only worth a refetch when something arrived.
+          if (isInitial || hasNew) notifyUnreadChanged()
         })
         .catch(() => {
           // A failed background poll shouldn't wipe out a thread that's already showing.
@@ -94,6 +96,8 @@ export default function ConversationPage() {
 
   const otherUserName =
     user?.id === conversation.buyer_id ? conversation.seller_name : conversation.buyer_name
+  // Like most chat apps, only show the receipt under your most recent message.
+  const lastMine = [...conversation.messages].reverse().find((m) => m.sender_id === user?.id)
 
   return (
     <div className="mx-auto max-w-lg">
@@ -103,8 +107,12 @@ export default function ConversationPage() {
       <div className="flex flex-col gap-3">
         {conversation.messages.map((m) => {
           const isMine = m.sender_id === user?.id
+          const receipt = m.id === lastMine?.id && m.status ? RECEIPT_LABELS[m.status] : null
           return (
-            <div key={m.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
+            <div
+              key={m.id}
+              className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}
+            >
               <div
                 className={`max-w-xs rounded-lg px-3 py-2 text-sm ${
                   isMine ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'
@@ -112,6 +120,14 @@ export default function ConversationPage() {
               >
                 {m.body}
               </div>
+              {receipt && (
+                <span
+                  data-testid="receipt"
+                  className={`mt-1 text-xs ${m.status === 'read' ? 'text-blue-600' : 'text-gray-500'}`}
+                >
+                  {receipt}
+                </span>
+              )}
             </div>
           )
         })}
