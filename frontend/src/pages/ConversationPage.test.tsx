@@ -1,8 +1,8 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
-import ConversationPage from './ConversationPage'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import ConversationPage, { CHAT_POLL_MS } from './ConversationPage'
 import { conversations as conversationsApi } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import type { ConversationDetail, User } from '../types'
@@ -105,5 +105,64 @@ describe('ConversationPage', () => {
     )
     await waitFor(() => expect(screen.getByText('Yes, still available!')).toBeInTheDocument())
     expect(input).toHaveValue('')
+  })
+
+  describe('live updates', () => {
+    beforeEach(() => {
+      vi.clearAllMocks()
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+    })
+    afterEach(() => vi.useRealTimers())
+
+    const reply = {
+      id: 2,
+      conversation_id: 1,
+      sender_id: 1,
+      body: 'Yes, come by at 5',
+      created_at: '2026-01-01T00:05:00Z',
+    }
+
+    it('shows a reply from the other person without reloading', async () => {
+      vi.mocked(conversationsApi.get)
+        .mockResolvedValueOnce(thread)
+        .mockResolvedValue({ ...thread, messages: [...thread.messages, reply] })
+      mockAuth(asUser(2))
+      renderPage()
+      await screen.findByText('Is this available?')
+      expect(screen.queryByText('Yes, come by at 5')).not.toBeInTheDocument()
+
+      await act(() => vi.advanceTimersByTimeAsync(CHAT_POLL_MS))
+
+      expect(await screen.findByText('Yes, come by at 5')).toBeInTheDocument()
+    })
+
+    it('refreshes the nav badge only when new messages arrive', async () => {
+      vi.mocked(conversationsApi.get).mockResolvedValue(thread)
+      const onUnreadChanged = vi.fn()
+      window.addEventListener('unread-changed', onUnreadChanged)
+      mockAuth(asUser(2))
+      renderPage()
+      await screen.findByText('Is this available?')
+      expect(onUnreadChanged).toHaveBeenCalledTimes(1) // initial open
+
+      await act(() => vi.advanceTimersByTimeAsync(CHAT_POLL_MS * 2))
+      expect(conversationsApi.get).toHaveBeenCalledTimes(3)
+      expect(onUnreadChanged).toHaveBeenCalledTimes(1) // nothing new, no extra refetch
+      window.removeEventListener('unread-changed', onUnreadChanged)
+    })
+
+    it('keeps showing the thread if a background poll fails', async () => {
+      vi.mocked(conversationsApi.get)
+        .mockResolvedValueOnce(thread)
+        .mockRejectedValue(new Error('network'))
+      mockAuth(asUser(2))
+      renderPage()
+      await screen.findByText('Is this available?')
+
+      await act(() => vi.advanceTimersByTimeAsync(CHAT_POLL_MS))
+
+      expect(screen.getByText('Is this available?')).toBeInTheDocument()
+      expect(screen.queryByText('Conversation not found')).not.toBeInTheDocument()
+    })
   })
 })

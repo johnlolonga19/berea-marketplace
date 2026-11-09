@@ -1,10 +1,20 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useParams } from 'react-router-dom'
 import { conversations as conversationsApi, ApiError } from '../lib/api'
 import { notifyUnreadChanged } from '../lib/unread'
-import type { ConversationDetail } from '../types'
+import type { ConversationDetail, Message } from '../types'
 import { useAuth } from '../context/AuthContext'
+
+/** How often an open thread checks for new messages. */
+export const CHAT_POLL_MS = 4_000
+
+/** Union by id, oldest first, so a poll and a just-sent message can't clobber each other. */
+function mergeMessages(current: Message[], incoming: Message[]): Message[] {
+  const byId = new Map(current.map((m) => [m.id, m]))
+  for (const m of incoming) byId.set(m.id, m)
+  return [...byId.values()].sort((a, b) => a.id - b.id)
+}
 
 export default function ConversationPage() {
   const { id } = useParams<{ id: string }>()
@@ -13,17 +23,53 @@ export default function ConversationPage() {
   const [error, setError] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
+  const bottomRef = useRef<HTMLDivElement>(null)
+  // Message ids we've already shown, so a poll can tell whether anything is new.
+  const seenIds = useRef<Set<number>>(new Set())
+
+  // Fetching the thread also marks it read on the server.
+  const load = useCallback(
+    (isInitial: boolean) => {
+      conversationsApi
+        .get(Number(id))
+        .then((fresh) => {
+          const hasNew = fresh.messages.some((m) => !seenIds.current.has(m.id))
+          fresh.messages.forEach((m) => seenIds.current.add(m.id))
+          if (!isInitial && !hasNew) return
+          setConversation((prev) =>
+            prev && prev.id === fresh.id
+              ? { ...fresh, messages: mergeMessages(prev.messages, fresh.messages) }
+              : fresh,
+          )
+          // Keep the nav badge in sync; only worth a refetch when something changed.
+          notifyUnreadChanged()
+        })
+        .catch(() => {
+          // A failed background poll shouldn't wipe out a thread that's already showing.
+          if (isInitial) setError('Conversation not found')
+        })
+    },
+    [id],
+  )
 
   useEffect(() => {
-    conversationsApi
-      .get(Number(id))
-      .then((c) => {
-        setConversation(c)
-        // Opening the thread marked it read on the server; refresh the nav badge.
-        notifyUnreadChanged()
-      })
-      .catch(() => setError('Conversation not found'))
-  }, [id])
+    seenIds.current = new Set()
+    load(true)
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') load(false)
+    }, CHAT_POLL_MS)
+    const onFocus = () => load(false)
+    window.addEventListener('focus', onFocus)
+    return () => {
+      window.clearInterval(interval)
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [load])
+
+  const messageCount = conversation?.messages.length ?? 0
+  useEffect(() => {
+    if (messageCount > 0) bottomRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'end' })
+  }, [messageCount])
 
   async function handleSend(e: FormEvent) {
     e.preventDefault()
@@ -31,7 +77,10 @@ export default function ConversationPage() {
     setSending(true)
     try {
       const message = await conversationsApi.sendMessage(conversation.id, draft.trim())
-      setConversation({ ...conversation, messages: [...conversation.messages, message] })
+      seenIds.current.add(message.id)
+      setConversation((prev) =>
+        prev ? { ...prev, messages: mergeMessages(prev.messages, [message]) } : prev,
+      )
       setDraft('')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong')
@@ -66,6 +115,7 @@ export default function ConversationPage() {
             </div>
           )
         })}
+        <div ref={bottomRef} />
       </div>
 
       <form onSubmit={handleSend} className="mt-6 flex gap-2">
