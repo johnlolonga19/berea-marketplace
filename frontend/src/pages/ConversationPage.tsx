@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useParams } from 'react-router-dom'
 import { conversations as conversationsApi, ApiError } from '../lib/api'
+import { notifyUnreadChanged } from '../lib/unread'
 import type { ConversationDetail } from '../types'
 import { useAuth } from '../context/AuthContext'
 
@@ -16,7 +17,11 @@ export default function ConversationPage() {
   useEffect(() => {
     conversationsApi
       .get(Number(id))
-      .then(setConversation)
+      .then((c) => {
+        setConversation(c)
+        // Opening the thread marked it read on the server; refresh the nav badge.
+        notifyUnreadChanged()
+      })
       .catch(() => setError('Conversation not found'))
   }, [id])
 

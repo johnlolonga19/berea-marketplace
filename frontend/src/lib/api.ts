@@ -179,6 +179,14 @@ export const conversations = {
     return request<ConversationSummary[]>('/conversations')
   },
 
+  /** Number of conversations with at least one unread message. */
+  async unreadCount(): Promise<number> {
+    const { conversations } = await request<{ conversations: number }>(
+      '/conversations/unread-count',
+    )
+    return conversations
+  },
+
   async get(id: number): Promise<ConversationDetail> {
     return request<ConversationDetail>(`/conversations/${id}`)
   },

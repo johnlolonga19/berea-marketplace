@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -8,10 +10,47 @@ from app.models.conversation import Conversation
 from app.models.listing import Listing
 from app.models.message import Message
 from app.models.user import User
-from app.schemas.conversation import ConversationCreate, ConversationDetail, ConversationSummary
+from app.schemas.conversation import (
+    ConversationCreate,
+    ConversationDetail,
+    ConversationSummary,
+    UnreadCount,
+)
 from app.schemas.message import MessageCreate, MessageRead
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
+
+
+def _as_utc(value: datetime) -> datetime:
+    # SQLite (tests) drops tzinfo; we only ever store UTC, so naive means UTC.
+    return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
+
+
+def _unread_count(conversation: Conversation, user: User) -> int:
+    is_buyer = conversation.buyer_id == user.id
+    last_read = conversation.buyer_last_read_at if is_buyer else conversation.seller_last_read_at
+    return sum(
+        1
+        for m in conversation.messages
+        if m.sender_id != user.id
+        and (last_read is None or _as_utc(m.created_at) > _as_utc(last_read))
+    )
+
+
+def _mark_read(conversation: Conversation, user: User) -> None:
+    now = datetime.now(timezone.utc)
+    if conversation.buyer_id == user.id:
+        conversation.buyer_last_read_at = now
+    else:
+        conversation.seller_last_read_at = now
+
+
+def _user_conversations(db: Session, user: User) -> list[Conversation]:
+    return (
+        db.query(Conversation)
+        .filter(or_(Conversation.buyer_id == user.id, Conversation.seller_id == user.id))
+        .all()
+    )
 
 
 def _to_detail(conversation: Conversation) -> ConversationDetail:
@@ -69,6 +108,7 @@ def start_conversation(
         db.flush()
 
     db.add(Message(conversation_id=conversation.id, sender_id=current_user.id, body=payload.body))
+    _mark_read(conversation, current_user)
     db.commit()
     db.refresh(conversation)
     return _to_detail(conversation)
@@ -78,16 +118,8 @@ def start_conversation(
 def list_conversations(
     db: Session = Depends(get_db), current_user: User = Depends(get_current_active_user)
 ) -> list[ConversationSummary]:
-    conversations = (
-        db.query(Conversation)
-        .filter(
-            or_(Conversation.buyer_id == current_user.id, Conversation.seller_id == current_user.id)
-        )
-        .all()
-    )
-
     summaries: list[ConversationSummary] = []
-    for conversation in conversations:
+    for conversation in _user_conversations(db, current_user):
         if not conversation.messages:
             continue
         last_message = conversation.messages[-1]
@@ -103,11 +135,23 @@ def list_conversations(
                 other_user_name=other_user.full_name,
                 last_message=last_message.body,
                 last_message_at=last_message.created_at,
+                unread_count=_unread_count(conversation, current_user),
             )
         )
 
     summaries.sort(key=lambda s: s.last_message_at, reverse=True)
     return summaries
+
+
+# Declared before /{conversation_id} so "unread-count" isn't parsed as an id.
+@router.get("/unread-count", response_model=UnreadCount)
+def unread_count(
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_active_user)
+) -> UnreadCount:
+    count = sum(
+        1 for c in _user_conversations(db, current_user) if _unread_count(c, current_user) > 0
+    )
+    return UnreadCount(conversations=count)
 
 
 @router.get("/{conversation_id}", response_model=ConversationDetail)
@@ -117,6 +161,10 @@ def get_conversation(
     current_user: User = Depends(get_current_active_user),
 ) -> ConversationDetail:
     conversation = get_participant_conversation(conversation_id, db, current_user)
+    # Opening the thread counts as reading it.
+    _mark_read(conversation, current_user)
+    db.commit()
+    db.refresh(conversation)
     return _to_detail(conversation)
 
 
@@ -130,6 +178,7 @@ def send_message(
     conversation = get_participant_conversation(conversation_id, db, current_user)
     message = Message(conversation_id=conversation.id, sender_id=current_user.id, body=payload.body)
     db.add(message)
+    _mark_read(conversation, current_user)
     db.commit()
     db.refresh(message)
     return message

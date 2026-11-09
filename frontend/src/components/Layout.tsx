@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { Link, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useUnreadCount } from '../lib/unread'
 
 export default function Layout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
+  const unread = useUnreadCount(user !== null)
 
   function closeMenu() {
     setMenuOpen(false)
@@ -32,8 +34,18 @@ export default function Layout() {
         <Link to="/my-listings" className={itemClass} onClick={closeMenu}>
           My listings
         </Link>
-        <Link to="/messages" className={itemClass} onClick={closeMenu}>
+        <Link
+          to="/messages"
+          className={`${linkClass} ${mobile ? 'flex py-2' : 'inline-flex'} items-center gap-1.5`}
+          onClick={closeMenu}
+          aria-label={unread > 0 ? `Messages, ${unread} unread` : undefined}
+        >
           Messages
+          {unread > 0 && (
+            <span className="rounded-full bg-red-600 px-1.5 py-0.5 text-xs font-semibold leading-none text-white">
+              {unread > 9 ? '9+' : unread}
+            </span>
+          )}
         </Link>
         <span className={mobile ? 'block py-2 text-gray-500' : 'text-gray-500'}>
           {user.full_name}
@@ -67,7 +79,7 @@ export default function Layout() {
             </div>
             <button
               type="button"
-              className="rounded p-2 text-gray-700 hover:bg-gray-100 md:hidden"
+              className="relative rounded p-2 text-gray-700 hover:bg-gray-100 md:hidden"
               aria-label={menuOpen ? 'Close menu' : 'Open menu'}
               aria-expanded={menuOpen}
               onClick={() => setMenuOpen((open) => !open)}
@@ -79,6 +91,12 @@ export default function Layout() {
                   <path d="M4 7h16M4 12h16M4 17h16" />
                 )}
               </svg>
+              {unread > 0 && !menuOpen && (
+                <span
+                  data-testid="menu-unread-dot"
+                  className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-red-600"
+                />
+              )}
             </button>
           </div>
           {menuOpen && (

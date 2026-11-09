@@ -29,6 +29,11 @@ class Conversation(Base):
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
 
+    # When each side last opened the thread; messages from the other side after
+    # this are unread. NULL means they've never opened it.
+    buyer_last_read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    seller_last_read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
     listing: Mapped["Listing"] = relationship()
     buyer: Mapped["User"] = relationship(foreign_keys=[buyer_id])
     seller: Mapped["User"] = relationship(foreign_keys=[seller_id])

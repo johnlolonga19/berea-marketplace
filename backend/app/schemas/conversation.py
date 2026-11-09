@@ -32,3 +32,9 @@ class ConversationSummary(BaseModel):
     other_user_name: str
     last_message: str
     last_message_at: datetime
+    unread_count: int
+
+
+class UnreadCount(BaseModel):
+    # Number of conversations with at least one unread message.
+    conversations: int

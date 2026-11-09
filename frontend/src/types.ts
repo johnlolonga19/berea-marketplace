@@ -62,4 +62,5 @@ export interface ConversationSummary {
   other_user_name: string
   last_message: string
   last_message_at: string
+  unread_count: number
 }
